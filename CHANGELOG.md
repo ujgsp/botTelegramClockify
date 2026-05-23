@@ -1,6 +1,13 @@
 ## [Unreleased]
 
-Belum ada perubahan.
+
+## [v1.0.1] - 2026-05-23
+
+### Security
+
+- Tambahkan guard/middleware whitelist Telegram user ID di GAS.
+- Hard-enforce whitelist di entrypoint webhook dan router pesan.
+- `/diag` menampilkan status whitelist untuk verifikasi.
 
 ## [v1.0.0] - 2026-05-23
 

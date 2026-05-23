@@ -35,6 +35,17 @@ function processMessage(body) {
   var userId = String(msg.from.id);
   var text = msg.text.trim();
 
+  // Final guard (fail-open when whitelist empty).
+  var rawAllowed = (getConfig().TELEGRAM_ALLOWED_USER_IDS || "").trim();
+  if (rawAllowed) {
+    var allowed = rawAllowed.split(/[\s,]+/).map(function(v) { return String(v).trim(); }).filter(Boolean);
+    if (allowed.indexOf(userId) === -1) {
+      Logger.log("Blocked Telegram user in processMessage: " + userId + " chat=" + chatId + " text=" + text.substring(0, 80));
+      Telegram.send(chatId, "Akses ditolak.");
+      return;
+    }
+  }
+
   // Remember chat for reminder delivery.
   PropertiesService.getScriptProperties().setProperty("REMINDER_CHAT_ID", String(chatId));
 

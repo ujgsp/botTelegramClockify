@@ -129,6 +129,7 @@ GAS Editor → Project Settings → Script Properties:
 | `CLOCKIFY_WORKSPACE_ID` | Workspace ID |
 | `CLOCKIFY_USER_ID` | User ID |
 | `CLOCKIFY_DEFAULT_PROJECT_ID` | Optional, bisa diset via `/project` |
+| `TELEGRAM_ALLOWED_USER_IDS` | Optional, whitelist user Telegram. Pisahkan dengan koma/spasi. Jika diisi, hanya user yang terdaftar yang diproses |
 | `REMINDER_ENABLED` | Optional, bisa diset via `/reminder on/off` |
 | `WORK_START` / `WORK_END` | Optional, default `08:00` / `17:00` |
 | `WORK_TARGET_HOURS` | Optional, default `8` |
@@ -374,6 +375,14 @@ Bot akan mengingatkan Anda untuk mulai dan istirahat sesuai jam kerja.
 
 Bot ini dirancang untuk **single user** (Anda sendiri). Setiap user ID Clockify berbeda, jadi bot hanya cocok dipakai sendiri atau di-fork untuk user lain dengan credential masing-masing.
 
+Jika ingin membatasi akses Telegram, isi `TELEGRAM_ALLOWED_USER_IDS` di Script Properties. Contoh:
+
+```text
+315354966,123456789
+```
+
+Kalau property ini kosong, bot tetap menerima semua user (fail-open).
+
 ---
 
 ## Security
@@ -381,6 +390,7 @@ Bot ini dirancang untuk **single user** (Anda sendiri). Setiap user ID Clockify 
 - Jangan commit secret/token/API key.
 - `.clasp.json`, `appsscript.json`, `.env*`, `.pi/` di-ignore.
 - Secrets hanya di GAS Script Properties dan Cloudflare Worker Variables.
+- Tambahkan `TELEGRAM_ALLOWED_USER_IDS` untuk whitelist jika bot dipakai lebih dari satu akun Telegram.
 
 
 ---
