@@ -118,17 +118,43 @@ function handleReport(chatId, userId, arg) {
 
     var msg = "📅 <b>Aktivitas " + range.label + "</b>\n\n";
     var totalMs = 0;
+    var currentDate = "";
+    var dayMs = 0;
+
+    // Clockify latest entries usually desc; sort ascending for readable report.
+    entries.sort(function (a, b) {
+      return new Date(a.timeInterval.start).getTime() - new Date(b.timeInterval.start).getTime();
+    });
 
     for (var i = 0; i < entries.length; i++) {
       var entry = entries[i];
       var startDate = new Date(entry.timeInterval.start);
       var endDate = entry.timeInterval.end ? new Date(entry.timeInterval.end) : new Date();
-      msg += "🕐 <b>" + formatTime(startDate) + " - " + (entry.timeInterval.end ? formatTime(endDate) : "sekarang") + "</b>\n" + (entry.description || "-") + "\n\n";
-      totalMs += endDate.getTime() - startDate.getTime();
+      var dateKey = Utilities.formatDate(startDate, getConfig().TIMEZONE, "yyyy-MM-dd");
+      var dateLabel = Utilities.formatDate(startDate, getConfig().TIMEZONE, "EEE, dd MMM yyyy");
+
+      if (currentDate && currentDate !== dateKey) {
+        msg += "Subtotal: <b>" + formatDurationMs(dayMs) + "</b>\n\n";
+        dayMs = 0;
+      }
+
+      if (currentDate !== dateKey) {
+        currentDate = dateKey;
+        msg += "📌 <b>" + dateLabel + "</b>\n";
+      }
+
+      var itemMs = endDate.getTime() - startDate.getTime();
+      msg += "🕐 <b>" + formatTime(startDate) + " - " + (entry.timeInterval.end ? formatTime(endDate) : "sekarang") + "</b> (" + formatDurationMs(itemMs) + ")\n" + (entry.description || "-") + "\n\n";
+      dayMs += itemMs;
+      totalMs += itemMs;
+    }
+
+    if (currentDate) {
+      msg += "Subtotal: <b>" + formatDurationMs(dayMs) + "</b>\n\n";
     }
 
     msg += "━━━━━━━━━━━━━━\n";
-    msg += "⏱️ <b>Total: " + formatDurationMs(totalMs) + "</b>";
+    msg += "⏱️ <b>Total periode: " + formatDurationMs(totalMs) + "</b>";
     Telegram.send(chatId, msg);
   } catch (e) {
     Logger.log("handleReport error: " + e.message);
