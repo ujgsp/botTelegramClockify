@@ -2,6 +2,10 @@
 
 Telegram bot untuk tracking waktu di Clockify. Bot berjalan di **Google Apps Script (GAS)**, menerima update Telegram lewat **Cloudflare Worker proxy**, dan memakai **Clockify API sebagai satu-satunya source of truth**.
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
+> **Built with:** Google Apps Script · Cloudflare Workers · Clockify API · Telegram Bot API
+
 ## Fitur
 
 - `/task <nama>` — Mulai task baru dan auto-stop timer aktif sebelumnya
@@ -61,7 +65,38 @@ Kenapa pakai Worker?
 └── README.md
 ```
 
-## Setup
+---
+
+## Quick Start (Ringkas)
+
+Bagi yang sudah familiar dengan GAS + Cloudflare Workers:
+
+```bash
+# 1. Clone & install
+git clone https://github.com/YOUR_USERNAME/clockify-telegram-bot.git
+cd clockify-telegram-bot
+npm install
+
+# 2. Login clasp
+npx clasp login
+
+# 3. Push ke GAS
+npx clasp push --force
+
+# 4. Deploy di GAS Editor → Web App → Execute as Me → Anyone
+
+# 5. Deploy Cloudflare Worker dengan env_gas = URL GAS /exec
+
+# 6. Set webhook
+curl "https://api.telegram.org/bot<TOKEN>/setWebhook?url=<WORKER_URL>&drop_pending_updates=true"
+
+# 7. Test
+# Kirim /start ke bot Telegram Anda
+```
+
+---
+
+## Setup Lengkap
 
 ### 1. Buat Telegram Bot
 
@@ -168,6 +203,116 @@ Endpoint yang sudah diverifikasi untuk workspace ini:
 - Worker mengembalikan `200 OK` segera.
 - GAS juga dedup by `update_id` via `CacheService`.
 
+---
+
+## Usage — Bot Commands
+
+### Basic Time Tracking
+
+| Command | Deskripsi | Contoh |
+|---------|-----------|--------|
+| `/start` atau `/help` | Tampilkan daftar command | `/start` |
+| `/task <nama>` | Stop timer aktif, mulai task baru | `/task coding fix bug` |
+| `/stop` | Stop timer yang sedang berjalan | `/stop` |
+| `/status` | Lihat task apa yang sedang jalan | `/status` |
+| `/last` | Lihat entry Clockify terakhir | `/last` |
+
+### Reports
+
+| Command | Deskripsi | Contoh |
+|---------|-----------|--------|
+| `/report` atau `/today` | Rekap waktu hari ini | `/report` |
+| `/report yyyy-mm-dd` | Rekap tanggal tertentu | `/report 2026-05-20` |
+| `/report yyyy-mm-dd yyyy-mm-dd` | Rekap rentang tanggal | `/report 2026-05-01 2026-05-23` |
+
+### Project Management
+
+| Command | Deskripsi | Contoh |
+|---------|-----------|--------|
+| `/projects` | List semua project aktif di Clockify | `/projects` |
+| `/project <nama/id>` | Set default project untuk task berikutnya | `/project MyProject` |
+| `/project new <nama>` | Buat project baru di Clockify & set sebagai default | `/project new ClientX` |
+| `/project clear` | Hapus default project | `/project clear` |
+
+### Reminder & Work Hours
+
+| Command | Deskripsi | Contoh |
+|---------|-----------|--------|
+| `/reminder on` | Aktifkan reminder kerja otomatis | `/reminder on` |
+| `/reminder off` | Matikan reminder | `/reminder off` |
+| `/reminder status` | Cek status reminder | `/reminder status` |
+| `/workhours HH:MM HH:MM` | Set jam kerja untuk reminder | `/workhours 08:00 17:00` |
+| `/target <jam>` | Set target jam kerja per hari | `/target 8` |
+
+### Special Dates
+
+| Command | Deskripsi | Contoh |
+|---------|-----------|--------|
+| `/piket yyyy-mm-dd` | Tambah hari piket (reminder tetap aktif di weekend/libur) | `/piket 2026-05-25` |
+| `/piket clear yyyy-mm-dd` | Hapus hari piket | `/piket clear 2026-05-25` |
+| `/libur yyyy-mm-dd` | Tambah hari libur (reminder mati) | `/libur 2026-05-26` |
+| `/libur clear yyyy-mm-dd` | Hapus hari libur | `/libur clear 2026-05-26` |
+
+### Shortcuts
+
+| Command | Task Name |
+|---------|-----------|
+| `/deploy` | `deploy` |
+| `/meeting` | `meeting` |
+| `/debug` | `debug` |
+| `/review` | `review` |
+
+### Diagnostic
+
+| Command | Deskripsi |
+|---------|-----------|
+| `/diag` | Cek status bot (aman, tidak menampilkan secret) |
+
+---
+
+## Tips & Tricks
+
+### Workflow Harian
+
+```text
+1. Mulai kerja: /task coding fitur baru
+2. Pindah task: /task review PR   ← otomatis stop timer lama
+3. Selesai: /stop
+4. Cek rekap: /report
+```
+
+### Project Default
+
+Set default project supaya tidak perlu ketik ID setiap kali:
+
+```text
+/project MyClient
+/task desain UI   ← otomatis pakai project MyClient
+```
+
+### Reminder Setup
+
+```text
+/workhours 09:00 17:00
+/target 8
+/reminder on
+```
+
+Bot akan mengingatkan Anda untuk mulai dan istirahat sesuai jam kerja.
+
+### Weekend / Hari Libur
+
+```text
+/libur 2026-05-26   ← reminder mati di tanggal ini
+/piket 2026-05-25   ← reminder tetap aktif meski hari Minggu
+```
+
+### Multi-User?
+
+Bot ini dirancang untuk **single user** (Anda sendiri). Setiap user ID Clockify berbeda, jadi bot hanya cocok dipakai sendiri atau di-fork untuk user lain dengan credential masing-masing.
+
+---
+
 ## Development Workflow
 
 1. Edit `.gs` / Worker file lokal
@@ -187,11 +332,28 @@ Endpoint yang sudah diverifikasi untuk workspace ini:
    /report
    ```
 
+---
+
 ## Security
 
 - Jangan commit secret/token/API key.
 - `.clasp.json`, `appsscript.json`, `.env*`, `.pi/` di-ignore.
 - Secrets hanya di GAS Script Properties dan Cloudflare Worker Variables.
+
+
+---
+
+## Contributing
+
+1. Fork repo ini
+2. Buat branch baru: `git checkout -b fitur-baru`
+3. Commit: `git commit -m 'Tambah fitur baru'`
+4. Push: `git push origin fitur-baru`
+5. Buat Pull Request
+
+Pastikan tidak ada secret/token yang ter-commit.
+
+---
 
 ## License
 
