@@ -73,5 +73,5 @@ jobs:
         with:
           tag_name: ${{ github.event.inputs.tag || github.ref_name }}
           name: ${{ github.event.inputs.tag || github.ref_name }}
-          generate_release_notes: true
+          body_path: CHANGELOG.md
           files: ${{ steps.package.outputs.artifact_name }}

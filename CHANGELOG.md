@@ -1,12 +1,11 @@
-# Changelog
-
 ## [Unreleased]
 
-- Belum ada perubahan.
+Belum ada perubahan.
 
 ## [v1.0.0] - 2026-05-23
 
 ### Added
+
 - `/task <nama>` — Mulai task baru, auto-stop timer aktif.
 - `/stop` — Stop timer aktif.
 - `/status` — Lihat task yang sedang berjalan.
@@ -23,10 +22,16 @@
 - `/libur yyyy-mm-dd` — Tambah hari libur.
 - `/diag` — Diagnostic aman (tanpa secret).
 - Shortcut: `/deploy`, `/meeting`, `/debug`, `/review`.
+
+### Architecture
+
 - Telegram webhook via Cloudflare Worker proxy.
 - GAS doGet bridge untuk mengatasi 302/405 error.
 - Clockify API sebagai satu-satunya source of truth.
 - GitHub Actions release workflow otomatis.
+
+### Documentation
+
 - README dengan setup guide lengkap.
 - CONTRIBUTING.md untuk kontributor.
 - PANDUAN_RILIS.md — panduan cara rilis.
