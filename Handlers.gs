@@ -188,12 +188,15 @@ function handleDiag(chatId) {
   try {
     var config = getConfig();
     var active = getCurrentClockifyTimer();
+    var allowed = (config.TELEGRAM_ALLOWED_USER_IDS || "").trim();
     var msg = "🧪 <b>Diagnostic</b>\n\n" +
       "Telegram token: " + (config.TELEGRAM_BOT_TOKEN ? "OK" : "MISSING") + "\n" +
       "Clockify key: " + (config.CLOCKIFY_API_KEY ? "OK" : "MISSING") + "\n" +
       "Workspace ID: " + (config.CLOCKIFY_WORKSPACE_ID ? "OK" : "MISSING") + "\n" +
       "User ID: " + (config.CLOCKIFY_USER_ID ? "OK" : "MISSING") + "\n" +
       "Default project: " + (config.CLOCKIFY_DEFAULT_PROJECT_ID ? "SET" : "none") + "\n" +
+      "Whitelist active: " + (allowed ? "YES" : "NO") + "\n" +
+      "Allowed Telegram user IDs: " + (allowed || "(empty)") + "\n" +
       "Reminder: " + (getReminderConfig().enabled ? "ON" : "OFF") + "\n" +
       "Active timer: " + (active ? (active.description || "-") : "none");
     Telegram.send(chatId, msg);
