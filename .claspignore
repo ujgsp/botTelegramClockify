@@ -1,8 +1,30 @@
 # Ignore non-GAS project files
+# Source code
 cloudflare-worker.js
+
+# Config & dependencies
 package.json
-README.md
-.gitignore
-.pi/**
-.git/**
+package-lock.json
 node_modules/**
+
+# Documentation
+README.md
+CONTRIBUTING.md
+CHANGELOG.md
+PANDUAN_RILIS.md
+LICENSE
+
+# Git & Clasp
+.gitignore
+.clasp.json
+appsscript.json
+
+# GitHub Actions
+.github/**
+
+# Agent context
+.pi/**
+
+# Secrets
+.env
+.env.*

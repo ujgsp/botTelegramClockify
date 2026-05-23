@@ -376,6 +376,148 @@ Bot ini dirancang untuk **single user** (Anda sendiri). Setiap user ID Clockify 
 
 ---
 
+## Release
+
+Release otomatis dibuat saat tag `v*.*.*` dipush ke GitHub.
+
+### Cara Release
+
+```bash
+# 1. Update CHANGELOG.md
+git add CHANGELOG.md
+git commit -m "Update CHANGELOG untuk v1.0.0"
+
+# 2. Buat tag
+git tag v1.0.0
+
+# 3. Push tag
+git push origin v1.0.0
+```
+
+### Apa yang Terjadi
+
+1. GitHub Actions menjalankan workflow release.
+2. Source code di-package menjadi ZIP artifact.
+3. GitHub Release dibuat otomatis dengan:
+   - Release notes dari `CHANGELOG.md`
+   - Auto-generated notes dari GitHub (commits/PRs)
+   - Artifact ZIP
+
+### Manual Release
+
+Bisa juga di-trigger manual dari tab **GitHub Actions** → **Release** → **Run workflow**.
+
+---
+
+## Release
+
+Release otomatis dibuat saat tag `v*.*.*` dipush ke GitHub.
+
+### Flow Release
+
+```text
+1. Update CHANGELOG.md
+2. Commit perubahan
+3. Buat tag (contoh: v1.1.0)
+4. Push tag
+5. GitHub Actions otomatis:
+   - Package source code jadi ZIP
+   - Publish GitHub Release dengan changelog
+```
+
+### Step-by-Step
+
+#### 1. Update CHANGELOG.md
+
+Buka `CHANGELOG.md` dan isi perubahan di section `[Unreleased]`:
+
+```markdown
+## [Unreleased]
+
+### Fitur Baru
+- Deskripsi fitur baru.
+- Deskripsi fitur lainnya.
+
+### Perbaikan Bug
+- Deskripsi bug yang diperbaiki.
+
+### Maintenance
+- Update dependency.
+- Refactor kode.
+```
+
+**Tips mengisi CHANGELOG:**
+
+| Bagian | Isi | Contoh |
+|--------|-----|--------|
+| `### Fitur Baru` | Functionality baru yang ditambahkan | `- /export — Export laporan ke CSV` |
+| `### Perbaikan Bug` | Bug yang diperbaiki | `- Timer tidak stop saat /task baru` |
+| `### Maintenance` | Refactor, dependency update, CI/CD | `- Update Node.js ke v22` |
+| `### Dokumentasi` | Perubahan docs | `- Tambah troubleshooting guide` |
+
+**Format penulisan:**
+
+```markdown
+- Deskripsi singkat dalam Bahasa Indonesia.
+- Gunakan `-` (dash) sebagai bullet.
+- Tulis dalam bentuk imperative ("Tambah" bukan "Ditambahkan").
+- Referensi issue/PR: [#123](https://github.com/...) (opsional).
+```
+
+#### 2. Commit Perubahan
+
+```bash
+# Pastikan semua file sudah di-commit
+git status
+git add CHANGELOG.md
+git commit -m "Update CHANGELOG untuk v1.1.0"
+```
+
+#### 3. Buat Tag
+
+```bash
+# Format: vMAJOR.MINOR.PATCH
+git tag v1.1.0
+```
+
+**Kapan bump version?**
+
+| Tipe | Kapan | Contoh |
+|------|-------|--------|
+| `PATCH` | Bug fix, perubahan kecil | v1.0.0 → v1.0.1 |
+| `MINOR` | Fitur baru, backward compatible | v1.0.0 → v1.1.0 |
+| `MAJOR` | Breaking changes | v1.0.0 → v2.0.0 |
+
+#### 4. Push Tag
+
+```bash
+git push origin v1.1.0
+```
+
+#### 5. Cek Release
+
+Buka `https://github.com/ujgsp/botTelegramClockify/releases` untuk melihat release yang dibuat otomatis.
+
+---
+
+### Manual Release
+
+Bisa juga di-trigger manual dari GitHub:
+
+1. Buka tab **Actions** → **Release**
+2. Klik **Run workflow**
+3. Isi tag (contoh: `v1.1.0`)
+4. Klik **Run workflow**
+
+### Artifact yang Dihasilkan
+
+Setiap release akan menghasilkan:
+
+- **ZIP file**: `clockify-telegram-bot-v1.1.0.zip` berisi source code
+- **Release notes**: Dari `CHANGELOG.md` + auto-generated dari GitHub
+
+---
+
 ## Development Workflow
 
 1. Edit `.gs` / Worker file lokal

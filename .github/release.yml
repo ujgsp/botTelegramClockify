@@ -1,0 +1,22 @@
+changelog:
+  categories:
+    - title: Fitur Baru
+      labels:
+        - 'type: feature'
+        - 'type: enhancement'
+
+    - title: Perbaikan Bug
+      labels:
+        - 'type: bug'
+
+    - title: Dokumentasi
+      labels:
+        - 'type: documentation'
+
+    - title: Maintenance
+      labels:
+        - 'type: maintenance'
+
+    - title: Lainnya
+      labels:
+        - '*'
