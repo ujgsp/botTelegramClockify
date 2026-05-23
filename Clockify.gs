@@ -28,6 +28,9 @@ function clockifyRequest(method, path, body) {
 function startClockifyTimer(taskName) {
   var config = getConfig();
   var body = { description: taskName, start: new Date().toISOString(), billable: true };
+  if (config.CLOCKIFY_DEFAULT_PROJECT_ID) {
+    body.projectId = config.CLOCKIFY_DEFAULT_PROJECT_ID;
+  }
   return clockifyRequest("POST", "/workspaces/" + config.CLOCKIFY_WORKSPACE_ID + "/time-entries", body);
 }
 
@@ -66,4 +69,34 @@ function getTodayClockifyEntries() {
     }
   }
   return result;
+}
+
+function getClockifyProjects() {
+  var config = getConfig();
+  return clockifyRequest("GET", "/workspaces/" + config.CLOCKIFY_WORKSPACE_ID + "/projects?page-size=50&archived=false");
+}
+
+function createClockifyProject(name) {
+  var config = getConfig();
+  return clockifyRequest("POST", "/workspaces/" + config.CLOCKIFY_WORKSPACE_ID + "/projects", {
+    name: name,
+    isPublic: true,
+    billable: true
+  });
+}
+
+function findClockifyProject(query) {
+  var projects = getClockifyProjects();
+  var q = String(query || "").toLowerCase().trim();
+  for (var i = 0; i < projects.length; i++) {
+    if (projects[i].id === query || String(projects[i].name || "").toLowerCase() === q) {
+      return projects[i];
+    }
+  }
+  for (var j = 0; j < projects.length; j++) {
+    if (String(projects[j].name || "").toLowerCase().indexOf(q) !== -1) {
+      return projects[j];
+    }
+  }
+  return null;
 }

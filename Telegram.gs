@@ -56,8 +56,21 @@ function processMessage(body) {
       handleStatus(chatId, userId);
       break;
     case "/report":
+    case "/today":
     case "/r":
       handleReport(chatId, userId);
+      break;
+    case "/last":
+      handleLast(chatId);
+      break;
+    case "/projects":
+      handleProjects(chatId);
+      break;
+    case "/project":
+      handleProject(chatId, arg);
+      break;
+    case "/diag":
+      handleDiag(chatId);
       break;
     case "/help":
     case "/start":

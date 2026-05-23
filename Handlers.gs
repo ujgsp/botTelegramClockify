@@ -7,7 +7,11 @@ function formatHelp() {
     "/task &lt;nama&gt;  — Mulai task baru\n" +
     "/stop           — Stop task aktif\n" +
     "/status         — Lihat task aktif\n" +
-    "/report         — Ringkasan hari ini\n\n" +
+    "/report atau /today — Ringkasan hari ini\n" +
+    "/last           — Task Clockify terakhir\n" +
+    "/projects       — List project Clockify\n" +
+    "/project &lt;nama/id&gt; — Set default project\n" +
+    "/diag           — Cek konfigurasi aman\n\n" +
     "<b>Shortcut:</b>\n" +
     "/deploy, /meeting, /debug, /review";
 }
@@ -140,6 +144,124 @@ function handleReport(chatId, userId) {
     Telegram.send(chatId, msg);
   } catch (e) {
     Logger.log("handleReport error: " + e.message);
+    Telegram.send(chatId, "❌ Error: " + e.message);
+  }
+}
+
+function handleLast(chatId) {
+  try {
+    var entries = getRecentClockifyEntries(1);
+    if (!entries || entries.length === 0) {
+      Telegram.send(chatId, "📭 Belum ada entry Clockify.");
+      return;
+    }
+
+    var e = entries[0];
+    var start = new Date(e.timeInterval.start);
+    var end = e.timeInterval.end ? new Date(e.timeInterval.end) : new Date();
+    var status = e.timeInterval.end ? "⏹️ Selesai" : "🟢 Aktif";
+    var msg = status + "\n<b>" + (e.description || "-") + "</b>\n" +
+      "🕐 " + formatTime(start) + " - " + (e.timeInterval.end ? formatTime(end) : "sekarang") + "\n" +
+      "⏱️ " + formatDuration(e.timeInterval.start, end.toISOString());
+    Telegram.send(chatId, msg);
+  } catch (e) {
+    Logger.log("handleLast error: " + e.message);
+    Telegram.send(chatId, "❌ Error: " + e.message);
+  }
+}
+
+function handleDiag(chatId) {
+  try {
+    var config = getConfig();
+    var active = getCurrentClockifyTimer();
+    var sheetStatus = "OK";
+    try {
+      getTasksSheet();
+    } catch (sheetErr) {
+      sheetStatus = "ERROR";
+    }
+
+    var msg = "🧪 <b>Diagnostic</b>\n\n" +
+      "Telegram token: " + (config.TELEGRAM_BOT_TOKEN ? "OK" : "MISSING") + "\n" +
+      "Clockify key: " + (config.CLOCKIFY_API_KEY ? "OK" : "MISSING") + "\n" +
+      "Workspace ID: " + (config.CLOCKIFY_WORKSPACE_ID ? "OK" : "MISSING") + "\n" +
+      "User ID: " + (config.CLOCKIFY_USER_ID ? "OK" : "MISSING") + "\n" +
+      "Spreadsheet: " + sheetStatus + "\n" +
+      "Default project: " + (config.CLOCKIFY_DEFAULT_PROJECT_ID ? "SET" : "none") + "\n" +
+      "Active timer: " + (active ? (active.description || "-") : "none");
+    Telegram.send(chatId, msg);
+  } catch (e) {
+    Logger.log("handleDiag error: " + e.message);
+    Telegram.send(chatId, "❌ Diagnostic error: " + e.message);
+  }
+}
+
+function handleProjects(chatId) {
+  try {
+    var config = getConfig();
+    var projects = getClockifyProjects();
+    if (!projects || projects.length === 0) {
+      Telegram.send(chatId, "📭 Tidak ada project aktif di Clockify.");
+      return;
+    }
+
+    var msg = "📁 <b>Project Clockify</b>\n\n";
+    var limit = Math.min(projects.length, 20);
+    for (var i = 0; i < limit; i++) {
+      var marker = projects[i].id === config.CLOCKIFY_DEFAULT_PROJECT_ID ? " ✅" : "";
+      msg += (i + 1) + ". " + projects[i].name + marker + "\n";
+      msg += "<code>" + projects[i].id + "</code>\n";
+    }
+    msg += "\nSet default: <code>/project nama-project</code>";
+    Telegram.send(chatId, msg);
+  } catch (e) {
+    Logger.log("handleProjects error: " + e.message);
+    Telegram.send(chatId, "❌ Error: " + e.message);
+  }
+}
+
+function handleProject(chatId, query) {
+  try {
+    var props = PropertiesService.getScriptProperties();
+    var config = getConfig();
+
+    if (!query || !query.trim()) {
+      if (!config.CLOCKIFY_DEFAULT_PROJECT_ID) {
+        Telegram.send(chatId, "📁 Default project belum diset.\nGunakan <code>/projects</code>, <code>/project nama-project</code>, atau <code>/project new nama-project</code>.");
+        return;
+      }
+      Telegram.send(chatId, "📁 Default project ID:\n<code>" + config.CLOCKIFY_DEFAULT_PROJECT_ID + "</code>");
+      return;
+    }
+
+    if (query.trim().toLowerCase() === "clear") {
+      props.deleteProperty("CLOCKIFY_DEFAULT_PROJECT_ID");
+      Telegram.send(chatId, "✅ Default project dihapus. Task berikutnya tanpa project.");
+      return;
+    }
+
+    if (query.trim().toLowerCase().indexOf("new ") === 0) {
+      var newName = query.trim().substring(4).trim();
+      if (!newName) {
+        Telegram.send(chatId, "❌ Nama project kosong. Contoh: <code>/project new OpenSID</code>");
+        return;
+      }
+      var created = createClockifyProject(newName);
+      props.setProperty("CLOCKIFY_DEFAULT_PROJECT_ID", created.id);
+      Telegram.send(chatId, "✅ Project dibuat dan jadi default:\n<b>" + created.name + "</b>\n<code>" + created.id + "</code>");
+      return;
+    }
+
+    var project = findClockifyProject(query.trim());
+    if (!project) {
+      Telegram.send(chatId, "❌ Project tidak ditemukan: " + query + "\nCek <code>/projects</code> atau buat baru dengan <code>/project new " + query + "</code>.");
+      return;
+    }
+
+    props.setProperty("CLOCKIFY_DEFAULT_PROJECT_ID", project.id);
+    Telegram.send(chatId, "✅ Default project diset:\n<b>" + project.name + "</b>\n<code>" + project.id + "</code>");
+  } catch (e) {
+    Logger.log("handleProject error: " + e.message);
     Telegram.send(chatId, "❌ Error: " + e.message);
   }
 }

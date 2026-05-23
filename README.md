@@ -7,7 +7,13 @@ Telegram bot untuk tracking waktu di Clockify. Bot berjalan di **Google Apps Scr
 - `/task <nama>` — Mulai task baru dan auto-stop timer aktif sebelumnya
 - `/stop` — Stop task aktif
 - `/status` — Lihat task yang sedang berjalan
-- `/report` — Rekap aktivitas hari ini
+- `/report` atau `/today` — Rekap aktivitas hari ini
+- `/last` — Lihat entry Clockify terakhir
+- `/projects` — List project aktif Clockify
+- `/project <nama/id>` — Set default project untuk task berikutnya
+- `/project new <nama>` — Buat project Clockify dan jadikan default
+- `/project clear` — Hapus default project
+- `/diag` — Diagnostic aman (tanpa menampilkan secret)
 - **Shortcut**: `/deploy`, `/meeting`, `/debug`, `/review`
 
 ## Arsitektur
@@ -87,6 +93,7 @@ GAS Editor → Project Settings → Script Properties:
 | `CLOCKIFY_WORKSPACE_ID` | Workspace ID |
 | `CLOCKIFY_USER_ID` | User ID |
 | `SPREADSHEET_ID` | Spreadsheet ID |
+| `CLOCKIFY_DEFAULT_PROJECT_ID` | Optional, bisa diset via `/project` |
 
 ### 5. Push ke Google Apps Script
 
