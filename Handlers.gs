@@ -7,10 +7,15 @@ function formatHelp() {
     "/task &lt;nama&gt;  — Mulai task baru\n" +
     "/stop           — Stop task aktif\n" +
     "/status         — Lihat task aktif\n" +
-    "/report atau /today — Ringkasan hari ini\n" +
+    "/report [tgl] [tgl] — Ringkasan/filter tanggal\n" +
     "/last           — Task Clockify terakhir\n" +
     "/projects       — List project Clockify\n" +
     "/project &lt;nama/id&gt; — Set default project\n" +
+    "/reminder on|off|status — Reminder kerja\n" +
+    "/workhours 08:00 17:00 — Set jam kerja\n" +
+    "/target 8      — Set target jam/hari\n" +
+    "/piket yyyy-mm-dd — Tambah hari piket\n" +
+    "/libur yyyy-mm-dd — Tambah hari libur\n" +
     "/diag           — Cek konfigurasi aman\n\n" +
     "<b>Shortcut:</b>\n" +
     "/deploy, /meeting, /debug, /review";
@@ -27,30 +32,19 @@ function handleTask(chatId, userId, taskName) {
   }
 
   try {
-    var active = getActiveTask(userId);
-    var clockifyEntry = getCurrentClockifyTimer();
-
-    // Stop previous timer from Clockify even if Sheets is out-of-sync
-    if (clockifyEntry) {
-      stopClockifyTimer(clockifyEntry.id, clockifyEntry.timeInterval.start, clockifyEntry.description);
-    }
-
+    var active = getCurrentClockifyTimer();
     if (active) {
-      var endTime = new Date();
-      var dur = formatDuration(active.startTime, endTime.toISOString());
-      logTaskStop(userId, endTime, dur);
+      stopClockifyTimer(active.id, active.timeInterval.start, active.description);
     }
 
     var entry = startClockifyTimer(taskName.trim());
-    var now = new Date();
-    logTaskStart(userId, taskName.trim(), entry.id, now, formatDate(now));
 
     var reply = "";
-    if (clockifyEntry) {
-      var prevDur = formatDuration(clockifyEntry.timeInterval.start, new Date().toISOString());
-      reply += "⏹️ Selesai: <b>" + (clockifyEntry.description || "Task sebelumnya") + "</b> (" + prevDur + ")\n\n";
+    if (active) {
+      var prevDur = formatDuration(active.timeInterval.start, new Date().toISOString());
+      reply += "⏹️ Selesai: <b>" + (active.description || "Task sebelumnya") + "</b> (" + prevDur + ")\n\n";
     }
-    reply += "🟢 <b>Task aktif:</b>\n" + taskName.trim();
+    reply += "🟢 <b>Task aktif:</b>\n" + (entry.description || taskName.trim());
     Telegram.send(chatId, reply);
   } catch (e) {
     Logger.log("handleTask error: " + e.message + " " + e.stack);
@@ -60,28 +54,16 @@ function handleTask(chatId, userId, taskName) {
 
 function handleStop(chatId, userId) {
   try {
-    var active = getActiveTask(userId);
-    var clockifyEntry = getCurrentClockifyTimer();
-
-    if (!active && !clockifyEntry) {
+    var active = getCurrentClockifyTimer();
+    if (!active) {
       Telegram.send(chatId, "💤 Tidak ada task aktif.\nKetik <code>/task &lt;nama&gt;</code> untuk mulai.");
       return;
     }
 
-    var endTime = new Date();
-    var taskName = active ? active.taskName : (clockifyEntry.description || "Task aktif");
-    var startTime = active ? active.startTime : clockifyEntry.timeInterval.start;
-
-    if (clockifyEntry) {
-      stopClockifyTimer(clockifyEntry.id, clockifyEntry.timeInterval.start, clockifyEntry.description);
-    }
-
-    var dur = formatDuration(startTime, endTime.toISOString());
-    if (active) {
-      logTaskStop(userId, endTime, dur);
-    }
-
-    Telegram.send(chatId, "⏹️ <b>Task selesai:</b>\n" + taskName + "\n⏱️ Durasi: " + dur);
+    var stopped = stopClockifyTimer(active.id, active.timeInterval.start, active.description);
+    var endTime = stopped && stopped.timeInterval.end ? stopped.timeInterval.end : new Date().toISOString();
+    var dur = formatDuration(active.timeInterval.start, endTime);
+    Telegram.send(chatId, "⏹️ <b>Task selesai:</b>\n" + (active.description || "Task aktif") + "\n⏱️ Durasi: " + dur);
   } catch (e) {
     Logger.log("handleStop error: " + e.message);
     Telegram.send(chatId, "❌ Error: " + e.message);
@@ -90,53 +72,59 @@ function handleStop(chatId, userId) {
 
 function handleStatus(chatId, userId) {
   try {
-    var active = getActiveTask(userId);
-    var clockifyEntry = getCurrentClockifyTimer();
-
-    if (!active && !clockifyEntry) {
+    var active = getCurrentClockifyTimer();
+    if (!active) {
       Telegram.send(chatId, "💤 Tidak ada task aktif.\nKetik <code>/task &lt;nama&gt;</code> untuk mulai.");
       return;
     }
 
-    var taskName = active ? active.taskName : (clockifyEntry.description || "Task aktif");
-    var startTime = active ? active.startTime : clockifyEntry.timeInterval.start;
-    var dur = formatDuration(startTime, new Date().toISOString());
-    Telegram.send(chatId, "🔄 <b>Task aktif sekarang:</b>\n" + taskName + "\n⏱️ Sudah berjalan: " + dur);
+    var dur = formatDuration(active.timeInterval.start, new Date().toISOString());
+    Telegram.send(chatId, "🔄 <b>Task aktif sekarang:</b>\n" + (active.description || "Task aktif") + "\n⏱️ Sudah berjalan: " + dur);
   } catch (e) {
     Logger.log("handleStatus error: " + e.message);
     Telegram.send(chatId, "❌ Error: " + e.message);
   }
 }
 
-function handleReport(chatId, userId) {
+function parseReportRange_(arg) {
+  var today = Utilities.formatDate(new Date(), getConfig().TIMEZONE, "yyyy-MM-dd");
+  var text = String(arg || "").trim();
+  if (!text) {
+    return { start: today, end: today, label: "Hari Ini" };
+  }
+
+  var parts = text.split(/\s+/).filter(Boolean);
+  var dateRe = /^\d{4}-\d{2}-\d{2}$/;
+  if (parts.length === 1 && dateRe.test(parts[0])) {
+    return { start: parts[0], end: parts[0], label: parts[0] };
+  }
+  if (parts.length >= 2 && dateRe.test(parts[0]) && dateRe.test(parts[1])) {
+    var start = parts[0] <= parts[1] ? parts[0] : parts[1];
+    var end = parts[0] <= parts[1] ? parts[1] : parts[0];
+    return { start: start, end: end, label: start + " s/d " + end };
+  }
+  throw new Error("Format report: /report atau /report yyyy-mm-dd atau /report yyyy-mm-dd yyyy-mm-dd");
+}
+
+function handleReport(chatId, userId, arg) {
   try {
-    var tasks = getTodayTasks(userId);
-    var msg = "📅 <b>Aktivitas Hari Ini</b>\n\n";
+    var range = parseReportRange_(arg);
+    var entries = getClockifyEntriesByDateRange(range.start, range.end);
+
+    if (!entries || entries.length === 0) {
+      Telegram.send(chatId, "📭 Belum ada aktivitas untuk periode " + range.label + ".");
+      return;
+    }
+
+    var msg = "📅 <b>Aktivitas " + range.label + "</b>\n\n";
     var totalMs = 0;
 
-    if (tasks.length > 0) {
-      for (var i = 0; i < tasks.length; i++) {
-        var t = tasks[i];
-        var startStr = formatTime(new Date(t.startTime));
-        var endStr = t.endTime ? formatTime(new Date(t.endTime)) : "sekarang";
-        msg += "🕐 <b>" + startStr + " - " + endStr + "</b>\n" + t.taskName + "\n\n";
-        var end = new Date(t.endTime || new Date().toISOString());
-        totalMs += end.getTime() - new Date(t.startTime).getTime();
-      }
-    } else {
-      // Fallback to Clockify when Sheets is out-of-sync
-      var entries = getTodayClockifyEntries();
-      if (entries.length === 0) {
-        Telegram.send(chatId, "📭 Belum ada aktivitas hari ini.");
-        return;
-      }
-      for (var j = 0; j < entries.length; j++) {
-        var e = entries[j];
-        var s = new Date(e.timeInterval.start);
-        var en = e.timeInterval.end ? new Date(e.timeInterval.end) : new Date();
-        msg += "🕐 <b>" + formatTime(s) + " - " + (e.timeInterval.end ? formatTime(en) : "sekarang") + "</b>\n" + (e.description || "-") + "\n\n";
-        totalMs += en.getTime() - s.getTime();
-      }
+    for (var i = 0; i < entries.length; i++) {
+      var entry = entries[i];
+      var startDate = new Date(entry.timeInterval.start);
+      var endDate = entry.timeInterval.end ? new Date(entry.timeInterval.end) : new Date();
+      msg += "🕐 <b>" + formatTime(startDate) + " - " + (entry.timeInterval.end ? formatTime(endDate) : "sekarang") + "</b>\n" + (entry.description || "-") + "\n\n";
+      totalMs += endDate.getTime() - startDate.getTime();
     }
 
     msg += "━━━━━━━━━━━━━━\n";
@@ -156,13 +144,13 @@ function handleLast(chatId) {
       return;
     }
 
-    var e = entries[0];
-    var start = new Date(e.timeInterval.start);
-    var end = e.timeInterval.end ? new Date(e.timeInterval.end) : new Date();
-    var status = e.timeInterval.end ? "⏹️ Selesai" : "🟢 Aktif";
-    var msg = status + "\n<b>" + (e.description || "-") + "</b>\n" +
-      "🕐 " + formatTime(start) + " - " + (e.timeInterval.end ? formatTime(end) : "sekarang") + "\n" +
-      "⏱️ " + formatDuration(e.timeInterval.start, end.toISOString());
+    var entry = entries[0];
+    var startDate = new Date(entry.timeInterval.start);
+    var endDate = entry.timeInterval.end ? new Date(entry.timeInterval.end) : new Date();
+    var status = entry.timeInterval.end ? "⏹️ Selesai" : "🟢 Aktif";
+    var msg = status + "\n<b>" + (entry.description || "-") + "</b>\n" +
+      "🕐 " + formatTime(startDate) + " - " + (entry.timeInterval.end ? formatTime(endDate) : "sekarang") + "\n" +
+      "⏱️ " + formatDuration(entry.timeInterval.start, endDate.toISOString());
     Telegram.send(chatId, msg);
   } catch (e) {
     Logger.log("handleLast error: " + e.message);
@@ -174,20 +162,13 @@ function handleDiag(chatId) {
   try {
     var config = getConfig();
     var active = getCurrentClockifyTimer();
-    var sheetStatus = "OK";
-    try {
-      getTasksSheet();
-    } catch (sheetErr) {
-      sheetStatus = "ERROR";
-    }
-
     var msg = "🧪 <b>Diagnostic</b>\n\n" +
       "Telegram token: " + (config.TELEGRAM_BOT_TOKEN ? "OK" : "MISSING") + "\n" +
       "Clockify key: " + (config.CLOCKIFY_API_KEY ? "OK" : "MISSING") + "\n" +
       "Workspace ID: " + (config.CLOCKIFY_WORKSPACE_ID ? "OK" : "MISSING") + "\n" +
       "User ID: " + (config.CLOCKIFY_USER_ID ? "OK" : "MISSING") + "\n" +
-      "Spreadsheet: " + sheetStatus + "\n" +
       "Default project: " + (config.CLOCKIFY_DEFAULT_PROJECT_ID ? "SET" : "none") + "\n" +
+      "Reminder: " + (getReminderConfig().enabled ? "ON" : "OFF") + "\n" +
       "Active timer: " + (active ? (active.description || "-") : "none");
     Telegram.send(chatId, msg);
   } catch (e) {
@@ -262,6 +243,95 @@ function handleProject(chatId, query) {
     Telegram.send(chatId, "✅ Default project diset:\n<b>" + project.name + "</b>\n<code>" + project.id + "</code>");
   } catch (e) {
     Logger.log("handleProject error: " + e.message);
+    Telegram.send(chatId, "❌ Error: " + e.message);
+  }
+}
+
+function handleReminder(chatId, arg) {
+  try {
+    var props = PropertiesService.getScriptProperties();
+    var cfg = getReminderConfig();
+    var cmd = String(arg || "status").trim().toLowerCase();
+    props.setProperty("REMINDER_CHAT_ID", String(chatId));
+
+    if (cmd === "on") {
+      props.setProperty("REMINDER_ENABLED", "true");
+      createReminderTrigger();
+      cfg = getReminderConfig();
+      Telegram.send(chatId, "✅ Reminder ON.\nJam kerja: " + cfg.workStart + " - " + cfg.workEnd + "\nTarget: " + cfg.targetHours + " jam/hari");
+      return;
+    }
+
+    if (cmd === "off") {
+      props.setProperty("REMINDER_ENABLED", "false");
+      deleteReminderTriggers();
+      Telegram.send(chatId, "✅ Reminder OFF.");
+      return;
+    }
+
+    Telegram.send(chatId, "⏰ <b>Reminder status</b>\n" +
+      "Status: " + (cfg.enabled ? "ON" : "OFF") + "\n" +
+      "Jam kerja: " + cfg.workStart + " - " + cfg.workEnd + "\n" +
+      "Target: " + cfg.targetHours + " jam/hari\n" +
+      "Piket: " + (cfg.piketDates.length ? cfg.piketDates.join(", ") : "-") + "\n" +
+      "Libur: " + (cfg.liburDates.length ? cfg.liburDates.join(", ") : "-"));
+  } catch (e) {
+    Logger.log("handleReminder error: " + e.message);
+    Telegram.send(chatId, "❌ Error: " + e.message);
+  }
+}
+
+function handleWorkhours(chatId, arg) {
+  try {
+    var parts = String(arg || "").trim().split(/\s+/);
+    if (parts.length !== 2 || !/^\d{2}:\d{2}$/.test(parts[0]) || !/^\d{2}:\d{2}$/.test(parts[1])) {
+      Telegram.send(chatId, "Format: <code>/workhours 08:00 17:00</code>");
+      return;
+    }
+    var props = PropertiesService.getScriptProperties();
+    props.setProperty("WORK_START", parts[0]);
+    props.setProperty("WORK_END", parts[1]);
+    Telegram.send(chatId, "✅ Jam kerja diset: " + parts[0] + " - " + parts[1]);
+  } catch (e) {
+    Telegram.send(chatId, "❌ Error: " + e.message);
+  }
+}
+
+function handleTarget(chatId, arg) {
+  try {
+    var hours = parseFloat(String(arg || "").trim());
+    if (!hours || hours <= 0 || hours > 24) {
+      Telegram.send(chatId, "Format: <code>/target 8</code>");
+      return;
+    }
+    PropertiesService.getScriptProperties().setProperty("WORK_TARGET_HOURS", String(hours));
+    Telegram.send(chatId, "✅ Target kerja diset: " + hours + " jam/hari");
+  } catch (e) {
+    Telegram.send(chatId, "❌ Error: " + e.message);
+  }
+}
+
+function handleDateListCommand(chatId, key, label, arg) {
+  try {
+    var value = String(arg || "").trim();
+    var cfg = getReminderConfig();
+    var current = key === "PIKET_DATES" ? cfg.piketDates : cfg.liburDates;
+
+    if (!value) {
+      Telegram.send(chatId, "📅 Daftar " + label + ":\n" + (current.length ? current.join("\n") : "-"));
+      return;
+    }
+
+    if (value.toLowerCase().indexOf("clear ") === 0) {
+      var dateToRemove = value.substring(6).trim();
+      var removed = removeDateConfig_(key, dateToRemove);
+      Telegram.send(chatId, "✅ Tanggal " + label + " dihapus: " + dateToRemove + "\nTotal: " + removed.length);
+      return;
+    }
+
+    var added = addDateConfig_(key, value);
+    Telegram.send(chatId, "✅ Tanggal " + label + " ditambahkan: " + value + "\nTotal: " + added.length);
+  } catch (e) {
     Telegram.send(chatId, "❌ Error: " + e.message);
   }
 }

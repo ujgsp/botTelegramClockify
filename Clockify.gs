@@ -58,17 +58,23 @@ function getCurrentClockifyTimer() {
   return null;
 }
 
-function getTodayClockifyEntries() {
-  var today = Utilities.formatDate(new Date(), getConfig().TIMEZONE, "yyyy-MM-dd");
-  var entries = getRecentClockifyEntries(50);
+function getClockifyEntriesByDateRange(startDate, endDate) {
+  var entries = getRecentClockifyEntries(100);
   var result = [];
   for (var i = 0; i < entries.length; i++) {
     var start = entries[i].timeInterval.start;
-    if (start && Utilities.formatDate(new Date(start), getConfig().TIMEZONE, "yyyy-MM-dd") === today) {
+    if (!start) continue;
+    var dateStr = Utilities.formatDate(new Date(start), getConfig().TIMEZONE, "yyyy-MM-dd");
+    if (dateStr >= startDate && dateStr <= endDate) {
       result.push(entries[i]);
     }
   }
   return result;
+}
+
+function getTodayClockifyEntries() {
+  var today = Utilities.formatDate(new Date(), getConfig().TIMEZONE, "yyyy-MM-dd");
+  return getClockifyEntriesByDateRange(today, today);
 }
 
 function getClockifyProjects() {

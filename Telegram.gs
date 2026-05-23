@@ -35,6 +35,9 @@ function processMessage(body) {
   var userId = String(msg.from.id);
   var text = msg.text.trim();
 
+  // Remember chat for reminder delivery.
+  PropertiesService.getScriptProperties().setProperty("REMINDER_CHAT_ID", String(chatId));
+
   var spaceIdx = text.indexOf(" ");
   var command, arg;
   if (spaceIdx === -1) {
@@ -58,7 +61,7 @@ function processMessage(body) {
     case "/report":
     case "/today":
     case "/r":
-      handleReport(chatId, userId);
+      handleReport(chatId, userId, arg);
       break;
     case "/last":
       handleLast(chatId);
@@ -68,6 +71,21 @@ function processMessage(body) {
       break;
     case "/project":
       handleProject(chatId, arg);
+      break;
+    case "/reminder":
+      handleReminder(chatId, arg);
+      break;
+    case "/workhours":
+      handleWorkhours(chatId, arg);
+      break;
+    case "/target":
+      handleTarget(chatId, arg);
+      break;
+    case "/piket":
+      handleDateListCommand(chatId, "PIKET_DATES", "piket", arg);
+      break;
+    case "/libur":
+      handleDateListCommand(chatId, "LIBUR_DATES", "libur", arg);
       break;
     case "/diag":
       handleDiag(chatId);

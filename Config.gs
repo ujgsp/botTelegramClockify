@@ -9,7 +9,6 @@ function getConfig() {
     CLOCKIFY_WORKSPACE_ID: props.getProperty("CLOCKIFY_WORKSPACE_ID") || "",
     CLOCKIFY_USER_ID: props.getProperty("CLOCKIFY_USER_ID") || "",
     CLOCKIFY_DEFAULT_PROJECT_ID: props.getProperty("CLOCKIFY_DEFAULT_PROJECT_ID") || "",
-    SPREADSHEET_ID: props.getProperty("SPREADSHEET_ID") || "",
     TIMEZONE: "Asia/Jakarta"
   };
 }
