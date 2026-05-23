@@ -2,6 +2,9 @@
 node_modules/
 package-lock.json
 
+# Agent context
+.pi/
+
 # GAS / Clasp
 .clasp.json
 appsscript.json
