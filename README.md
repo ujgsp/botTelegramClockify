@@ -153,13 +153,76 @@ Lalu di GAS Editor:
 
 ### 5. Deploy Cloudflare Worker
 
-Deploy isi file `cloudflare-worker.js` ke Cloudflare Worker.
+Cloudflare Worker berfungsi sebagai **stable proxy** untuk Telegram webhook. Kenapa tidak langsung ke GAS?
 
-Worker variable:
+| Masalah | Penjelasan |
+|---------|------------|
+| `302 Moved Temporarily` | GAS web app sering redirect |
+| `405 Method Not Allowed` | Telegram tidak bisa POST ke redirect target |
+| `200 OK` response | Worker langsung reply agar Telegram tidak retry/duplikat |
 
-| Key | Value |
-|-----|-------|
-| `env_gas` atau `GAS_WEBAPP_URL` | URL deploy GAS `/exec` |
+#### 5a. Buat Cloudflare Account
+
+1. Buka [dash.cloudflare.com](https://dash.cloudflare.com/)
+2. Sign up (gratis, tidak perlu card)
+3. Verify email
+
+#### 5b. Buat Worker
+
+1. Login Cloudflare Dashboard
+2. Pilih **Workers & Pages** (sidebar kiri)
+3. Klik **Create Application**
+4. Pilih **Create Worker**
+5. Beri nama (contoh: `clockify-telegram-proxy`)
+6. Klik **Deploy**
+
+#### 5c. Deploy Code
+
+1. Setelah Worker created, klik **Edit code**
+2. Hapus semua code bawaan
+3. Copy paste isi `cloudflare-worker.js` dari repo ini
+4. Klik **Deploy** (saves and deploys)
+
+#### 5d. Set Environment Variable
+
+1. Kembali ke Worker dashboard
+2. Pilih tab **Settings** → **Variables**
+3. Klik **Add variable**
+4. Isi:
+
+| Field | Value |
+|-------|-------|
+| Variable name | `GAS_WEBAPP_URL` |
+| Value | `https://script.google.com/macros/s/YOUR_GAS_DEPLOYMENT_ID/exec` |
+| Type | Encrypt (recommended) |
+
+5. Klik **Save**
+
+#### 5e. Ambil Worker URL
+
+Setelah deploy, Worker punya URL seperti:
+
+```text
+https://clockify-telegram-proxy.YOUR_SUBDOMAIN.workers.dev
+```
+
+Copy URL ini — akan dipakai di step 6.
+
+#### 5f. Test Worker
+
+```bash
+# GET health check
+curl https://clockify-telegram-proxy.YOUR_SUBDOMAIN.workers.dev/
+
+# Expected response:
+# {"status":"ok","service":"clockify-telegram-proxy","version":"1.1"}
+
+# POST test
+curl -X POST https://clockify-telegram-proxy.YOUR_SUBDOMAIN.workers.dev/ -d '{"test":true}'
+
+# Expected response:
+# ok
+```
 
 ### 6. Set Telegram Webhook ke Worker
 
