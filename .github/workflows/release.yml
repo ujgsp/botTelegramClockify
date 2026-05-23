@@ -72,6 +72,6 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.event.inputs.tag || github.ref_name }}
-          name: Clockify Telegram Bot ${{ github.event.inputs.tag || github.ref_name }}
+          name: ${{ github.event.inputs.tag || github.ref_name }}
           generate_release_notes: true
           files: ${{ steps.package.outputs.artifact_name }}
