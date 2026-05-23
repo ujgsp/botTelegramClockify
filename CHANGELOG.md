@@ -1,5 +1,8 @@
 ## [Unreleased]
 
+
+## [v1.0.1] - 2026-05-23
+
 ### Security
 
 - Tambahkan guard/middleware whitelist Telegram user ID di GAS.
