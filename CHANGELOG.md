@@ -4,12 +4,13 @@ Semua perubahan penting pada Clockify Telegram Bot dicatat di file ini.
 
 Format versi mengikuti semver: `vMAJOR.MINOR.PATCH`.
 
-## [Unreleased]
+## [v1.0.1] - 2026-05-23
 
 ### Fitur Baru
 - Workflow GitHub Actions untuk release otomatis.
 - Konfigurasi release notes berdasarkan label GitHub.
 - Panduan Cloudflare Worker deployment lengkap di README.
+- PANDUAN_RILIS.md — panduan lengkap cara rilis.
 
 ## [v1.0.0] - 2026-05-23
 
