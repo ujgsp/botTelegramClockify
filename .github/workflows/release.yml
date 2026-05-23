@@ -22,37 +22,39 @@ jobs:
   release:
     name: Package and publish release
     runs-on: ubuntu-latest
+    env:
+      RELEASE_TAG: ${{ github.event.inputs.tag || github.ref_name }}
 
     steps:
       - name: Checkout source code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
-          ref: ${{ github.event.inputs.tag || github.ref }}
+          ref: ${{ env.RELEASE_TAG }}
 
       - name: Validate manual release tag
         if: github.event_name == 'workflow_dispatch'
         run: |
-          git rev-parse "${{ github.event.inputs.tag }}" >/dev/null
-          [[ "${{ github.event.inputs.tag }}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          git rev-parse "${{ env.RELEASE_TAG }}" >/dev/null
+          [[ "${{ env.RELEASE_TAG }}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-
-      - name: Install dependencies
-        run: npm install
-
-      - name: Validate clasp config exists
+      - name: Extract changelog for this version
+        id: changelog
         run: |
-          echo "✅ Source files ready for GAS deployment"
-          ls -la *.gs *.js 2>/dev/null || true
+          VERSION="${RELEASE_TAG#v}"  # Remove 'v' prefix
+
+          # Extract changelog section for this version
+          awk "/^## \[${VERSION}\]/{flag=1; next} /^## \[/{flag=0} flag" CHANGELOG.md > /tmp/release-notes.md
+
+          # If empty, use a default message
+          if [ ! -s /tmp/release-notes.md ]; then
+            echo "Release ${VERSION}" > /tmp/release-notes.md
+          fi
+
+          echo "--- Release notes ---"
+          cat /tmp/release-notes.md
 
       - name: Package release artifact
         id: package
-        env:
-          RELEASE_TAG: ${{ github.event.inputs.tag || github.ref_name }}
         run: |
           ARTIFACT_NAME="clockify-telegram-bot-${RELEASE_TAG}.zip"
           rm -f "$ARTIFACT_NAME"
@@ -68,10 +70,11 @@ jobs:
             -x 'appsscript.json'
           echo "artifact_name=$ARTIFACT_NAME" >> "$GITHUB_OUTPUT"
 
-      - name: Publish GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ github.event.inputs.tag || github.ref_name }}
-          name: ${{ github.event.inputs.tag || github.ref_name }}
-          body_path: CHANGELOG.md
-          files: ${{ steps.package.outputs.artifact_name }}
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${RELEASE_TAG}" \
+            --title "${RELEASE_TAG}" \
+            --notes-file /tmp/release-notes.md \
+            ${{ steps.package.outputs.artifact_name }}
