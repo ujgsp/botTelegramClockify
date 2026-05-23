@@ -1,0 +1,23 @@
+# Dependencies
+node_modules/
+package-lock.json
+
+# GAS / Clasp
+.clasp.json
+appsscript.json
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log

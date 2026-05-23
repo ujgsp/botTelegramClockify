@@ -1,0 +1,15 @@
+{
+  "name": "clockify-telegram-bot",
+  "version": "1.0.0",
+  "description": "Telegram bot for Clockify time tracking via Google Apps Script",
+  "scripts": {
+    "push": "clasp push --force",
+    "deploy": "clasp deploy"
+  },
+  "keywords": ["telegram", "clockify", "google-apps-script"],
+  "author": "cahjenggot.dev",
+  "license": "MIT",
+  "devDependencies": {
+    "@google/clasp": "^3.3.0"
+  }
+}
