@@ -40,13 +40,30 @@ function stopClockifyTimer(entryId, entryStart, entryDesc) {
   return clockifyRequest("PUT", url, body);
 }
 
-function getCurrentClockifyTimer() {
+function getRecentClockifyEntries(limit) {
   var config = getConfig();
   var wid = config.CLOCKIFY_WORKSPACE_ID;
   var uid = config.CLOCKIFY_USER_ID;
-  var entries = clockifyRequest("GET", "/workspaces/" + wid + "/user/" + uid + "/time-entries?page-size=1");
+  return clockifyRequest("GET", "/workspaces/" + wid + "/user/" + uid + "/time-entries?page-size=" + (limit || 20));
+}
+
+function getCurrentClockifyTimer() {
+  var entries = getRecentClockifyEntries(1);
   if (entries.length > 0 && !entries[0].timeInterval.end) {
     return entries[0];
   }
   return null;
+}
+
+function getTodayClockifyEntries() {
+  var today = Utilities.formatDate(new Date(), getConfig().TIMEZONE, "yyyy-MM-dd");
+  var entries = getRecentClockifyEntries(50);
+  var result = [];
+  for (var i = 0; i < entries.length; i++) {
+    var start = entries[i].timeInterval.start;
+    if (start && Utilities.formatDate(new Date(start), getConfig().TIMEZONE, "yyyy-MM-dd") === today) {
+      result.push(entries[i]);
+    }
+  }
+  return result;
 }

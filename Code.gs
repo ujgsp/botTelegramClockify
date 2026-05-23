@@ -1,12 +1,38 @@
 /**
  * Clockify Telegram Bot — Entry point with deduplication
  */
+function isDuplicateUpdate_(updateId) {
+  if (!updateId) return false;
+  var cache = CacheService.getScriptCache();
+  var key = "upd_" + updateId;
+  if (cache.get(key)) return true;
+  cache.put(key, "1", 300);
+  return false;
+}
+
+function handleTelegramUpdate_(body) {
+  if (body.update_id && isDuplicateUpdate_(body.update_id)) return;
+  processMessage(body);
+}
+
 function doGet(e) {
+  try {
+    // Cloudflare Worker bridge: /exec?update=<encoded Telegram update JSON>
+    if (e && e.parameter && e.parameter.update) {
+      var body = JSON.parse(e.parameter.update);
+      handleTelegramUpdate_(body);
+      return ContentService.createTextOutput("ok");
+    }
+  } catch (err) {
+    Logger.log("doGet bridge error: " + err);
+    return ContentService.createTextOutput("ok");
+  }
+
   return ContentService.createTextOutput(
     JSON.stringify({
       status: "ok",
       service: "Clockify Telegram Bot",
-      version: "1.6",
+      version: "1.7",
       timestamp: new Date().toISOString()
     })
   ).setMimeType(ContentService.MimeType.JSON);
@@ -15,21 +41,7 @@ function doGet(e) {
 function doPost(e) {
   try {
     var body = JSON.parse(e.postData.contents);
-
-    // Deduplication: skip if update_id was already processed
-    // Telegram retries when GAS cold start is slow
-    if (body.update_id) {
-      var cache = CacheService.getScriptCache();
-      var key = "upd_" + body.update_id;
-      if (cache.get(key)) {
-        // Already processed this update, skip
-        return ContentService.createTextOutput("ok");
-      }
-      // Mark as processed (expires in 5 minutes)
-      cache.put(key, "1", 300);
-    }
-
-    processMessage(body);
+    handleTelegramUpdate_(body);
   } catch (err) {
     Logger.log("Webhook error: " + err);
   }

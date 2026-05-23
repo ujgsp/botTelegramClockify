@@ -1,0 +1,8 @@
+# Ignore non-GAS project files
+cloudflare-worker.js
+package.json
+README.md
+.gitignore
+.pi/**
+.git/**
+node_modules/**
