@@ -4,6 +4,8 @@ Semua perubahan penting pada Clockify Telegram Bot dicatat di file ini.
 
 Format versi mengikuti semver: `vMAJOR.MINOR.PATCH`.
 
+## [Unreleased]
+
 ## [v1.0.0] - 2026-05-23
 
 ### Fitur Baru
