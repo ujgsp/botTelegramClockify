@@ -17,7 +17,6 @@ LICENSE
 # Git & Clasp
 .gitignore
 .clasp.json
-appsscript.json
 
 # GitHub Actions
 .github/**
