@@ -21,6 +21,47 @@ var Telegram = {
       Logger.log("Gagal kirim: " + e.message);
       Logger.log("Chat: " + chatId + " Text: " + text.substring(0, 100));
     }
+  },
+
+  sendLoading: function(chatId) {
+    var token = getConfig().TELEGRAM_BOT_TOKEN;
+    var url = this.API_URL + token + "/sendMessage";
+    try {
+      var res = UrlFetchApp.fetch(url, {
+        method: "post",
+        payload: JSON.stringify({
+          chat_id: chatId,
+          text: "⏳ Mohon ditunggu...",
+          parse_mode: "HTML"
+        }),
+        contentType: "application/json"
+      });
+      var json = JSON.parse(res.getContentText());
+      return json.result ? json.result.message_id : null;
+    } catch (e) {
+      Logger.log("sendLoading error: " + e.message);
+      return null;
+    }
+  },
+
+  editMessage: function(chatId, messageId, text) {
+    if (!messageId) return;
+    var token = getConfig().TELEGRAM_BOT_TOKEN;
+    var url = this.API_URL + token + "/editMessageText";
+    try {
+      UrlFetchApp.fetch(url, {
+        method: "post",
+        payload: JSON.stringify({
+          chat_id: chatId,
+          message_id: messageId,
+          text: text,
+          parse_mode: "HTML"
+        }),
+        contentType: "application/json"
+      });
+    } catch (e) {
+      Logger.log("editMessage error: " + e.message);
+    }
   }
 };
 
