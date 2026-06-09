@@ -34,12 +34,13 @@ function startClockifyTimer(taskName) {
   return clockifyRequest("POST", "/workspaces/" + config.CLOCKIFY_WORKSPACE_ID + "/time-entries", body);
 }
 
-function stopClockifyTimer(entryId, entryStart, entryDesc) {
+function stopClockifyTimer(entryId, entryStart, entryDesc, projectId) {
   var config = getConfig();
   var wid = config.CLOCKIFY_WORKSPACE_ID;
   var now = new Date().toISOString();
   var url = "/workspaces/" + wid + "/time-entries/" + entryId;
   var body = { start: entryStart, end: now, description: entryDesc || "" };
+  if (projectId) body.projectId = projectId;
   return clockifyRequest("PUT", url, body);
 }
 

@@ -1,5 +1,18 @@
 ## [Unreleased]
 
+## [v1.0.2] - 2026-06-09
+
+### Fitur Baru
+- Tambah loading indicator (⏳ Mohon ditunggu...) untuk `/status`, `/report`, `/last`, `/projects`.
+- Pesan loading otomatis diedit menjadi hasil setelah data siap.
+
+### Perbaikan Bug
+- Fix `/stop` error 400: kirim `projectId` saat stop timer Clockify.
+- Fix `/task` saat ganti task: kirim `projectId` saat stop timer sebelumnya.
+
+### Maintenance
+- Tambah method `Telegram.sendLoading()` dan `Telegram.editMessage()`.
+
 
 ## [v1.0.1] - 2026-05-23
 
