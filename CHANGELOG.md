@@ -1,5 +1,21 @@
 ## [Unreleased]
 
+## [v1.1.0] - 2026-11-19
+
+### Fitur Baru
+- `/rekap [yyyy-mm]` — Rekap kerja bulanan: target jam, aktual, kelebihan/kekurangan, dedikasi 20 jam, dan kelayakan cuti berbayar (>20 jam).
+- `/overtime [tgl] [tgl]` — Rincian jam kelebihan target harian dengan rentang waktu.
+- `/ramadan tgl tgl` / `/ramadan clear` — Set periode Ramadan manual (target 6,5 jam/hari kerja).
+- Dukungan hari kerja efektif: Senin–Jumat, libur (`/libur`), piket (`/piket`) tetap dihitung.
+
+### Perbaikan Bug
+- `/report` lambat: ganti pagination serial dengan filter `start`/`end` langsung ke API Clockify (1 request vs 3+).
+- `/report` gagal pada data besar: batasi panjang pesan, escape HTML deskripsi, log respons Telegram.
+
+### Maintenance
+- Tambah utilitas `escapeHtml_()` dan `calculateOvertimeByDate_()`.
+- Self-check otomatis perhitungan lembur dan filter tanggal Clockify.
+
 ## [v1.0.2] - 2026-06-09
 
 ### Fitur Baru
