@@ -7,13 +7,16 @@ function formatHelp() {
     "/task &lt;nama&gt;  — Mulai task baru\n" +
     "/stop           — Stop task aktif\n" +
     "/status         — Lihat task aktif\n" +
-    "/report [tgl] [tgl] — Ringkasan/filter tanggal\n" +
+    "/report [tgl] [tgl] — Ringkasan termasuk lembur\n" +
+    "/overtime [tgl] [tgl] — Rincian jam lembur harian\n" +
+    "/rekap [yyyy-mm] — Rekap target dan kelayakan cuti\n" +
     "/last           — Task Clockify terakhir\n" +
     "/projects       — List project Clockify\n" +
     "/project &lt;nama/id&gt; — Set default project\n" +
     "/reminder on|off|status — Reminder kerja\n" +
     "/workhours 08:00 17:00 — Set jam kerja\n" +
     "/target 8      — Set target jam/hari\n" +
+    "/ramadan tgl tgl — Set periode Ramadan manual (6,5 jam/hari)\n" +
     "/piket yyyy-mm-dd — Tambah hari piket\n" +
     "/libur yyyy-mm-dd — Tambah hari libur\n" +
     "/diag           — Cek konfigurasi aman\n\n" +
@@ -107,6 +110,15 @@ function parseReportRange_(arg) {
   throw new Error("Format report: /report atau /report yyyy-mm-dd atau /report yyyy-mm-dd yyyy-mm-dd");
 }
 
+function formatOvertimeRanges_(day) {
+  if (!day || !day.overtimeMs) return "";
+  var text = "💰 <b>Lembur: " + formatDurationMs(day.overtimeMs) + "</b>\n";
+  day.ranges.forEach(function(range) {
+    text += "   " + formatTime(range.start) + " - " + formatTime(range.end) + " (" + formatDurationMs(range.ms) + ")\n";
+  });
+  return text;
+}
+
 function handleReport(chatId, userId, arg) {
   var msgId = Telegram.sendLoading(chatId);
   try {
@@ -119,13 +131,17 @@ function handleReport(chatId, userId, arg) {
     }
 
     var msg = "📅 <b>Aktivitas " + range.label + "</b>\n\n";
+    var detailLimit = 3000;
+    var hiddenEntries = 0;
     var totalMs = 0;
+    var totalOvertimeMs = 0;
     var currentDate = "";
     var dayMs = 0;
 
     entries.sort(function (a, b) {
       return new Date(a.timeInterval.start).getTime() - new Date(b.timeInterval.start).getTime();
     });
+    var overtimeByDate = calculateOvertimeByDate_(entries, getReminderConfig().targetHours);
 
     for (var i = 0; i < entries.length; i++) {
       var entry = entries[i];
@@ -135,7 +151,8 @@ function handleReport(chatId, userId, arg) {
       var dateLabel = Utilities.formatDate(startDate, getConfig().TIMEZONE, "EEE, dd MMM yyyy");
 
       if (currentDate && currentDate !== dateKey) {
-        msg += "Subtotal: <b>" + formatDurationMs(dayMs) + "</b>\n\n";
+        msg += "Subtotal: <b>" + formatDurationMs(dayMs) + "</b>\n";
+        msg += formatOvertimeRanges_(overtimeByDate[currentDate]) + "\n";
         dayMs = 0;
       }
 
@@ -145,20 +162,80 @@ function handleReport(chatId, userId, arg) {
       }
 
       var itemMs = endDate.getTime() - startDate.getTime();
-      msg += "🕐 <b>" + formatTime(startDate) + " - " + (entry.timeInterval.end ? formatTime(endDate) : "sekarang") + "</b> (" + formatDurationMs(itemMs) + ")\n" + (entry.description || "-") + "\n\n";
+      var safeDesc = escapeHtml_(entry.description);
+      var detail = "🕐 <b>" + formatTime(startDate) + " - " + (entry.timeInterval.end ? formatTime(endDate) : "sekarang") + "</b> (" + formatDurationMs(itemMs) + ")\n" + safeDesc + "\n\n";
+      if (msg.length + detail.length < detailLimit) msg += detail;
+      else hiddenEntries++;
       dayMs += itemMs;
       totalMs += itemMs;
     }
 
     if (currentDate) {
-      msg += "Subtotal: <b>" + formatDurationMs(dayMs) + "</b>\n\n";
+      msg += "Subtotal: <b>" + formatDurationMs(dayMs) + "</b>\n";
+      msg += formatOvertimeRanges_(overtimeByDate[currentDate]) + "\n";
     }
 
+    Object.keys(overtimeByDate).forEach(function(dateKey) {
+      totalOvertimeMs += overtimeByDate[dateKey].overtimeMs;
+    });
+    if (hiddenEntries) msg += "… " + hiddenEntries + " entry disembunyikan karena batas panjang pesan Telegram.\n\n";
     msg += "━━━━━━━━━━━━━━\n";
-    msg += "⏱️ <b>Total periode: " + formatDurationMs(totalMs) + "</b>";
+    msg += "⏱️ <b>Total periode: " + formatDurationMs(totalMs) + "</b>\n";
+    msg += "💰 <b>Total kerja di atas target harian: " + formatDurationMs(totalOvertimeMs) + "</b>\n";
+    msg += "ℹ️ Kelayakan cuti berbayar dihitung bulanan via <code>/rekap " + range.start.substring(0, 7) + "</code>.";
     Telegram.editMessage(chatId, msgId, msg);
   } catch (e) {
     Logger.log("handleReport error: " + e.message);
+    Telegram.editMessage(chatId, msgId, "❌ Error: " + e.message);
+  }
+}
+
+function handleMonthlySummary(chatId, arg) {
+  var msgId = Telegram.sendLoading(chatId);
+  try {
+    var month = String(arg || "").trim() || Utilities.formatDate(new Date(), getConfig().TIMEZONE, "yyyy-MM");
+    var entries = getClockifyEntriesByDateRange(month + "-01", month + "-31");
+    var summary = getMonthlyWorkSummary_(month, entries);
+    var msg = "📊 <b>Rekap kerja " + month + "</b>\n\n" +
+      "Hari kerja efektif: <b>" + summary.regularDays + " hari</b>\n" +
+      "Target: <b>" + formatDurationMs(summary.targetMs) + "</b>\n" +
+      "Aktual: <b>" + formatDurationMs(summary.actualMs) + "</b>\n" +
+      "Kekurangan: <b>" + formatDurationMs(summary.deficitMs) + "</b>\n" +
+      "Kelebihan: <b>" + formatDurationMs(summary.surplusMs) + "</b>\n" +
+      "Dedikasi/kinerja (20 jam pertama): <b>" + formatDurationMs(summary.dedicationMs) + "</b>\n" +
+      "Cuti berbayar (di atas 20 jam): <b>" + formatDurationMs(summary.creditLeaveMs) + "</b>\n\n" +
+      "Catatan: hari libur memakai daftar <code>/libur</code>; tanggal piket tetap dihitung. Ramadan diatur manual.";
+    Telegram.editMessage(chatId, msgId, msg);
+  } catch (e) {
+    Logger.log("handleMonthlySummary error: " + e.message);
+    Telegram.editMessage(chatId, msgId, "❌ Error: " + e.message);
+  }
+}
+
+function handleOvertime(chatId, arg) {
+  var msgId = Telegram.sendLoading(chatId);
+  try {
+    var range = parseReportRange_(arg);
+    var entries = getClockifyEntriesByDateRange(range.start, range.end);
+    entries.sort(function(a, b) {
+      return new Date(a.timeInterval.start).getTime() - new Date(b.timeInterval.start).getTime();
+    });
+    var days = calculateOvertimeByDate_(entries, getReminderConfig().targetHours);
+    var dates = Object.keys(days).sort();
+    var msg = "💰 <b>Lembur " + range.label + "</b>\n\n";
+    var totalMs = 0;
+    dates.forEach(function(dateKey) {
+      var day = days[dateKey];
+      if (!day.overtimeMs) return;
+      msg += "📌 <b>" + dateKey + "</b>\n" + formatOvertimeRanges_(day) + "\n";
+      totalMs += day.overtimeMs;
+    });
+    if (!totalMs) msg += "Tidak ada lembur tercatat untuk periode ini.\n";
+    msg += "━━━━━━━━━━━━━━\n<b>Total di atas target harian: " + formatDurationMs(totalMs) + "</b>\n";
+    msg += "ℹ️ Hak cuti berbayar ditentukan oleh <code>/rekap " + range.start.substring(0, 7) + "</code>.";
+    Telegram.editMessage(chatId, msgId, msg);
+  } catch (e) {
+    Logger.log("handleOvertime error: " + e.message);
     Telegram.editMessage(chatId, msgId, "❌ Error: " + e.message);
   }
 }
@@ -311,6 +388,24 @@ function handleReminder(chatId, arg) {
     Logger.log("handleReminder error: " + e.message);
     Telegram.send(chatId, "❌ Error: " + e.message);
   }
+}
+
+function handleRamadan(chatId, arg) {
+  var value = String(arg || "").trim();
+  var props = PropertiesService.getScriptProperties();
+  if (value === "clear") {
+    props.deleteProperty("RAMADAN_START");
+    props.deleteProperty("RAMADAN_END");
+    Telegram.send(chatId, "✅ Periode Ramadan dihapus.");
+    return;
+  }
+  var parts = value.split(/\s+/);
+  if (parts.length !== 2 || !/^\d{4}-\d{2}-\d{2}$/.test(parts[0]) || !/^\d{4}-\d{2}-\d{2}$/.test(parts[1]) || parts[0] > parts[1]) {
+    Telegram.send(chatId, "Format: <code>/ramadan yyyy-mm-dd yyyy-mm-dd</code> atau <code>/ramadan clear</code>");
+    return;
+  }
+  props.setProperties({ RAMADAN_START: parts[0], RAMADAN_END: parts[1] });
+  Telegram.send(chatId, "✅ Target Ramadan diset: " + parts[0] + " s/d " + parts[1] + " (6j 30m/hari)");
 }
 
 function handleWorkhours(chatId, arg) {

@@ -44,11 +44,13 @@ function stopClockifyTimer(entryId, entryStart, entryDesc, projectId) {
   return clockifyRequest("PUT", url, body);
 }
 
-function getRecentClockifyEntries(limit) {
+function getRecentClockifyEntries(limit, page) {
   var config = getConfig();
   var wid = config.CLOCKIFY_WORKSPACE_ID;
   var uid = config.CLOCKIFY_USER_ID;
-  return clockifyRequest("GET", "/workspaces/" + wid + "/user/" + uid + "/time-entries?page-size=" + (limit || 20));
+  var query = "?page-size=" + (limit || 20);
+  if (page) query += "&page=" + page;
+  return clockifyRequest("GET", "/workspaces/" + wid + "/user/" + uid + "/time-entries" + query);
 }
 
 function getCurrentClockifyTimer() {
@@ -60,17 +62,14 @@ function getCurrentClockifyTimer() {
 }
 
 function getClockifyEntriesByDateRange(startDate, endDate) {
-  var entries = getRecentClockifyEntries(100);
-  var result = [];
-  for (var i = 0; i < entries.length; i++) {
-    var start = entries[i].timeInterval.start;
-    if (!start) continue;
-    var dateStr = Utilities.formatDate(new Date(start), getConfig().TIMEZONE, "yyyy-MM-dd");
-    if (dateStr >= startDate && dateStr <= endDate) {
-      result.push(entries[i]);
-    }
-  }
-  return result;
+  var config = getConfig();
+  var nextDay = new Date(endDate + "T00:00:00Z");
+  nextDay.setUTCDate(nextDay.getUTCDate() + 1);
+  var start = encodeURIComponent(startDate + "T00:00:00Z");
+  var end = encodeURIComponent(nextDay.toISOString());
+  var path = "/workspaces/" + config.CLOCKIFY_WORKSPACE_ID + "/user/" + config.CLOCKIFY_USER_ID +
+    "/time-entries?page-size=5000&start=" + start + "&end=" + end;
+  return clockifyRequest("GET", path);
 }
 
 function getTodayClockifyEntries() {
