@@ -49,16 +49,18 @@ var Telegram = {
     var token = getConfig().TELEGRAM_BOT_TOKEN;
     var url = this.API_URL + token + "/editMessageText";
     try {
-      UrlFetchApp.fetch(url, {
+      var res = UrlFetchApp.fetch(url, {
         method: "post",
         payload: JSON.stringify({
           chat_id: chatId,
           message_id: messageId,
-          text: text,
+          text: text.substring(0, 3900),
           parse_mode: "HTML"
         }),
-        contentType: "application/json"
+        contentType: "application/json",
+        muteHttpExceptions: true
       });
+      Logger.log("editMessage response: " + res.getContentText());
     } catch (e) {
       Logger.log("editMessage error: " + e.message);
     }
@@ -115,6 +117,14 @@ function processMessage(body) {
     case "/r":
       handleReport(chatId, userId, arg);
       break;
+    case "/overtime":
+    case "/ot":
+      handleOvertime(chatId, arg);
+      break;
+    case "/rekap":
+    case "/monthly":
+      handleMonthlySummary(chatId, arg);
+      break;
     case "/last":
       handleLast(chatId);
       break;
@@ -132,6 +142,9 @@ function processMessage(body) {
       break;
     case "/target":
       handleTarget(chatId, arg);
+      break;
+    case "/ramadan":
+      handleRamadan(chatId, arg);
       break;
     case "/piket":
       handleDateListCommand(chatId, "PIKET_DATES", "piket", arg);

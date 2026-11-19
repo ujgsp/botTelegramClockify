@@ -10,6 +10,8 @@ function getReminderConfig() {
     workStart: props.getProperty("WORK_START") || "08:00",
     workEnd: props.getProperty("WORK_END") || "17:00",
     targetHours: parseFloat(props.getProperty("WORK_TARGET_HOURS") || "8"),
+    ramadanStart: props.getProperty("RAMADAN_START") || "",
+    ramadanEnd: props.getProperty("RAMADAN_END") || "",
     piketDates: parseDateList_(props.getProperty("PIKET_DATES") || ""),
     liburDates: parseDateList_(props.getProperty("LIBUR_DATES") || "")
   };
@@ -42,6 +44,57 @@ function currentMinutesJakarta_() {
 
 function todayJakarta_() {
   return Utilities.formatDate(new Date(), getConfig().TIMEZONE, "yyyy-MM-dd");
+}
+
+function isRamadanDate_(dateKey, cfg) {
+  return cfg.ramadanStart && cfg.ramadanEnd && dateKey >= cfg.ramadanStart && dateKey <= cfg.ramadanEnd;
+}
+
+function getMonthlyWorkSummary_(month, entries) {
+  var cfg = getReminderConfig();
+  var monthMatch = /^(\d{4})-(\d{2})$/.exec(month);
+  if (!monthMatch || Number(monthMatch[2]) < 1 || Number(monthMatch[2]) > 12) {
+    throw new Error("Format bulan harus yyyy-mm");
+  }
+  var year = Number(monthMatch[1]);
+  var monthNum = Number(monthMatch[2]);
+  var lastDay = new Date(Date.UTC(year, monthNum, 0)).getUTCDate();
+  var targetMs = 0;
+  var days = {};
+  var regularDays = 0;
+
+  for (var dayNum = 1; dayNum <= lastDay; dayNum++) {
+    var dateKey = month + "-" + (dayNum < 10 ? "0" : "") + dayNum;
+    var date = new Date(Date.UTC(year, monthNum - 1, dayNum, 12));
+    var weekday = Number(Utilities.formatDate(date, getConfig().TIMEZONE, "u"));
+    var isPiket = cfg.piketDates.indexOf(dateKey) !== -1;
+    var isHoliday = cfg.liburDates.indexOf(dateKey) !== -1 && !isPiket;
+    if (!isHoliday && (isPiket || (weekday >= 1 && weekday <= 5))) {
+      var dailyTarget = isRamadanDate_(dateKey, cfg) ? 6.5 : cfg.targetHours;
+      targetMs += dailyTarget * 3600000;
+      regularDays++;
+    }
+    days[dateKey] = { targetMs: (!isHoliday && (isPiket || (weekday >= 1 && weekday <= 5))) ? (isRamadanDate_(dateKey, cfg) ? 6.5 : cfg.targetHours) * 3600000 : 0, actualMs: 0, ranges: [] };
+  }
+
+  entries.forEach(function(entry) {
+    var start = new Date(entry.timeInterval.start);
+    var end = entry.timeInterval.end ? new Date(entry.timeInterval.end) : new Date();
+    var dateKey = Utilities.formatDate(start, getConfig().TIMEZONE, "yyyy-MM-dd");
+    if (dateKey.indexOf(month + "-") !== 0 || !days[dateKey]) return;
+    var duration = Math.max(0, end.getTime() - start.getTime());
+    var day = days[dateKey];
+    day.actualMs += duration;
+    day.ranges.push({ start: start, end: end, ms: duration });
+    if (duration && day.actualMs > day.targetMs) {
+      day.overtimeMs = (day.overtimeMs || 0) + Math.max(0, day.actualMs - Math.max(day.targetMs, day.actualMs - duration));
+    }
+  });
+
+  var actualMs = Object.keys(days).reduce(function(sum, key) { return sum + days[key].actualMs; }, 0);
+  var surplusMs = Math.max(0, actualMs - targetMs);
+  var deficitMs = Math.max(0, targetMs - actualMs);
+  return { month: month, targetMs: targetMs, actualMs: actualMs, surplusMs: surplusMs, deficitMs: deficitMs, creditLeaveMs: Math.max(0, surplusMs - 20 * 3600000), dedicationMs: Math.min(surplusMs, 20 * 3600000), days: days, regularDays: regularDays };
 }
 
 function isRegularWorkday_(date) {

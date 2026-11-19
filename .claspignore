@@ -1,6 +1,7 @@
 # Ignore non-GAS project files
 # Source code
 cloudflare-worker.js
+tests/**
 
 # Config & dependencies
 package.json
